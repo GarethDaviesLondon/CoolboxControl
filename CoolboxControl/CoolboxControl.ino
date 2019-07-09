@@ -4,7 +4,7 @@
 
 //#define DEBUG
 //#define NOSAFETY
-#define SIGNATURE 0xAE //Used to check if the EEPROM has been initialised
+#define SIGNATURE 0xAA //Used to check if the EEPROM has been initialised
 #define MODE_LOCATION 4
 #define UNDERVOLTAGEFLAG_LOCATION 8
 #define UNDERVOLTAGELEVEL_LOCATION 12
@@ -22,9 +22,9 @@
 #define FIRSTCYCLONMINS 1
 #define ONCYCLEIMINS 4
 #define OFFCYCLEMINS 1
-#define LOWVOLTAGETHRESHOLD 685
-#define HIGHVOLTAGETHRESHOLD 770
-#define ALLWAYSONVOLTAGE 710
+#define LOWVOLTAGETHRESHOLD 640
+#define HIGHVOLTAGETHRESHOLD 680
+#define ALLWAYSONVOLTAGE 663
 #define TARGETAUTO 15
 
 
