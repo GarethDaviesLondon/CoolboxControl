@@ -55,6 +55,8 @@ bool coolingCycle=true;
 bool firstRun=true;
 bool keepWait=true;
 bool verbage=false;
+bool changeMode=false;
+int  modeSelect=1;
 String Mode;
 
 DHT dht(DHTPIN, DHTTYPE);  //INITIALISE the DHT Library instance
@@ -106,17 +108,15 @@ void setup() {
 #ifndef NOSAFETY
   delay(2000);
 #endif
+  Serial.print("Ready > ");
 }
 
 
 void loop() {
 
-  
-  Serial.print("Ready > ");
 
   //if this is the first loop, turn on cooling now
-
-  //Turn on the coolbox for 5 mins
+  //Turn on the coolbox 
   if (firstRun==true)
   {
       coolingCycle=true;
@@ -141,30 +141,33 @@ void loop() {
           waitMins(0);
        }
 #endif
+  selectmode(modeSelect);
+   }
+}
 
-/*
-if (verbage){
-      Serial.println("Initial COOLING ON");
+
+
+void selectmode(int modenumber)
+{
+  changeMode=false;
+  modeSelect=modenumber;
+  switch (modenumber)
+  {
+    case 1: automode();
+            break;
+    case 2: targetauto();
+            break;
+    case 3: cyclemode();
+            break;
+    case 4: longCool();
+            break;
+    case 5: longWarm();
+            break;
+    default:
+          modeSelect=1;
+          Serial.println("mode select error");
+          automode();
   }
-      cool();
-      firstRun=false;
-      waitMins(FIRSTCYCLONMINS);
-  }
-  
-  GlobalTemp=dht.readTemperature();
-  while (isnan(GlobalTemp)) {
-#ifndef NOSAFETY
-         Serial.println(F("Failed to read from DHT sensor!"));
-#endif
-      GlobalTemp=dht.readTemperature();
-      underVoltage();
-      waitMins(0);
-   }
- 
- */
- 
-automode();
-   }
 }
 
 void targetauto()
@@ -172,14 +175,14 @@ void targetauto()
  
     Mode="Target";
     GlobalTemp=dht.readTemperature();
-    while (isnan(GlobalTemp)) {
+    while (isnan(GlobalTemp) && (changeMode==false) ) {
           #ifndef NOSAFETY
            Serial.println(F("Fail DHT read!"));
            #endif
         GlobalTemp=dht.readTemperature();
     }
 
-    while (GlobalTemp > TARGETAUTO)
+    while ( (GlobalTemp > TARGETAUTO) && (changeMode==false) )
     {
           GlobalTemp=dht.readTemperature();
           while (isnan(GlobalTemp)) {
@@ -191,14 +194,14 @@ void targetauto()
 
       switchtoCool(ONCYCLEIMINS);
     }
-    automode();
+    selectmode(1);
 }
 
 
 void cyclemode(void)
 {
   
-  while (1)
+  while (changeMode==false)
   {
     Mode="Cy Cool";
     switchtoCool(ONCYCLEIMINS);
@@ -207,7 +210,15 @@ void cyclemode(void)
   }
 }
 
+void longCool(void)
+{
+       switchtoCool(60);
+}
 
+void longWarm(void)
+{
+      switchtoWarm(60);
+}
 
 void automode(void)
 {
@@ -267,11 +278,11 @@ void waitMins(int mins)
 
     for (int lp=0;lp<mins;lp++)
     {
-        if (keepWait) {
+        if ( keepWait && !changeMode ) {
         for (int innerlp=0;innerlp<150;innerlp++)
         {
           delay(100);
-          if(!keepWait) {break;}
+          if(!keepWait || changeMode ) {break;}
           underVoltage();
           overVoltage();
           if (getCommandLineFromSerialPort(CommandLine) )
@@ -479,7 +490,7 @@ void report()
   float saving=(float)coolCount/(float)(warmCount+coolCount);
   saving=saving*100;
 
-  Serial.print("DutyCycle = ");
+  Serial.print("onPercentage = ");
   Serial.print(saving,2);
   Serial.println("%");
 
@@ -577,8 +588,8 @@ bool DoCommand(char * commandLine) {
      Serial.print("\nReady > ");
      Serial.println("Starting 1 hour COOL cycle - break command to end early");
      Mode="Manual Cool";
-     switchtoCool(ONCYCLEIMINS);
-     waitMins(60);
+     modeSelect=4;
+     changeMode=true;
      commandExecuted=true;
    }
 
@@ -586,8 +597,8 @@ bool DoCommand(char * commandLine) {
      Serial.println("Starting 1 hour WARM cycle - break command to end early");
      Serial.print("\nReady > ");
      Mode="Manual Warm";
-     switchtoWarm(OFFCYCLEMINS);
-     waitMins(60);
+     modeSelect=5;
+     changeMode=true;
      commandExecuted=true;
    }
 
@@ -597,8 +608,6 @@ bool DoCommand(char * commandLine) {
      Serial.print("Verbose mode = ");
      Serial.println(verbage);
      Serial.print("\nReady > ");
-     switchtoWarm(OFFCYCLEMINS);
-     waitMins(60);
      commandExecuted=true;
    }
 
@@ -607,14 +616,16 @@ if ((strcmp(ptrToCommandName, cyclemodeToken) == 0) | strcmp(ptrToCommandName, c
      Serial.print("Cycle mins = ");
      Serial.println(ONCYCLEIMINS);;
      Serial.print("\nReady > ");
-     cyclemode();
+     modeSelect=3;
+     changeMode=true;
      commandExecuted=true;
    }
 
 if ((strcmp(ptrToCommandName, automodeToken) == 0) | strcmp(ptrToCommandName, automodeToken2)==0)  { 
      Serial.println("Automode");
      Serial.print("\nReady > ");
-     automode();
+     modeSelect=1;
+     changeMode=true;
      commandExecuted=true;
    }
 
@@ -622,7 +633,8 @@ if ((strcmp(ptrToCommandName, automodeToken) == 0) | strcmp(ptrToCommandName, au
      Serial.print("Target Auto - Target ");
      Serial.println(TARGETAUTO);
      Serial.print("\nReady > ");
-     targetauto();
+     modeSelect=2;
+     changeMode=true;
      commandExecuted=true;
    }
    
