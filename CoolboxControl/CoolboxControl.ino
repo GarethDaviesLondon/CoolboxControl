@@ -79,6 +79,7 @@ bool verbage=false;
 bool changeMode=false;
 int  modeSelect=1;
 String Mode;
+const char* DHTMESS = "Fail DHT read";
 
 DHT dht(DHTPIN, DHTTYPE);  //INITIALISE the DHT Library instance
 
@@ -87,13 +88,15 @@ void setup() {
   Serial.begin(9600);
   Serial.println();
   Serial.println();
-  Serial.println("Cooler Improver - (c) Gareth Davies, Brighton, 2019");
+  Serial.println("Cooler Improver (c) G.Davies, Brighton 2019");
 
 #ifdef DEBUG
   verbage=true;
 #endif
 
   readDefaults();
+  //analogReference(INTERNAL);
+  analogReference(DEFAULT);
   
   Serial.println();
   Serial.println();
@@ -169,9 +172,12 @@ void selectmode(int modenumber)
     case 5: Mode="Manual Warm";
             longWarm();
             break;
+    case 6: Mode="Target Maintain";
+            targetMaintain();
+            break;
     default:
           modeSelect=1;
-          Serial.println("mode select error");
+          Serial.println("mode error");
           automode();
   }
 }
@@ -180,11 +186,11 @@ void selectmode(int modenumber)
 void targetauto()
 {
  
-    Mode="Target";
+    Mode="Target->Auto";
     GlobalTemp=dht.readTemperature();
     while (isnan(GlobalTemp) && (changeMode==false) ) {
           #ifndef NOSAFETY
-           Serial.println(F("Fail DHT read!"));
+           Serial.println(DHTMESS);
            #endif
         GlobalTemp=dht.readTemperature();
     }
@@ -194,7 +200,7 @@ void targetauto()
           GlobalTemp=dht.readTemperature();
           while (isnan(GlobalTemp)) {
           #ifndef NOSAFETY
-                   Serial.println(F("Fail DHT read!"));
+                   Serial.println(DHTMESS);
           #endif
                 GlobalTemp=dht.readTemperature();
           }
@@ -202,6 +208,53 @@ void targetauto()
       switchtoCool(ONCYCLEIMINS);
     }
     selectmode(1);
+}
+
+
+void targetMaintain()
+{
+    Mode="Target->Maintain";
+    GlobalTemp=dht.readTemperature();
+    while (isnan(GlobalTemp) && (changeMode==false) ) {
+          #ifndef NOSAFETY
+           Serial.println(DHTMESS);
+           #endif
+        GlobalTemp=dht.readTemperature();
+    }
+
+
+    while (changeMode==false)
+    {
+
+    //Cool cycle
+
+    while ( (GlobalTemp > targetTemp) && (changeMode==false) )
+    {
+          GlobalTemp=dht.readTemperature();
+          while (isnan(GlobalTemp)) {
+          #ifndef NOSAFETY
+                   Serial.println(DHTMESS);
+          #endif
+                GlobalTemp=dht.readTemperature();
+          }
+
+      switchtoCool(ONCYCLEIMINS);
+    }
+
+    startWarmCycleTemp=GlobalTemp;
+    
+    while ( (GlobalTemp<=startWarmCycleTemp+0.5) && (changeMode==false) )
+    {
+          switchtoWarm(OFFCYCLEMINS);
+          GlobalTemp=dht.readTemperature();
+          while (isnan(GlobalTemp)) {
+          #ifndef NOSAFETY
+                   Serial.println(DHTMESS);
+          #endif
+                GlobalTemp=dht.readTemperature();
+          }
+    }  
+  }
 }
 
 
@@ -470,63 +523,65 @@ void report()
   tt=dht.readTemperature();
   while (isnan(tt)) {
 #ifndef NOSAFETY
-         Serial.println(F("Failed read DHT!"));
+         Serial.println(DHTMESS);
 #endif
       tt=dht.readTemperature();
       underVoltage();
       waitMins(0);
    }
 
-  Serial.print("Mode = ");
+  Serial.print("\nMode = ");
   Serial.println (Mode);
 
   
-  Serial.print("Temperature Now = ");
+  Serial.print("\nTemperature Now = ");
   Serial.println(tt,3);
   
-  Serial.print("Global Temp =");
+  Serial.print(" Global Temp =");
   Serial.println(GlobalTemp,3);
   
-  Serial.print("Temp start of loop =");
+  Serial.print(" Loopstart =");
   Serial.println(lastTemp,3);
   
-  Serial.print("Temp warm loop start =");
+  Serial.print(" Start warm loop =");
   Serial.println(startWarmCycleTemp,3);
   
   
-  Serial.print("Temp initialised =");
+  Serial.print(" Initialised =");
   Serial.println(initialTemp,3);
   
 
-  Serial.print("Preset Target = ");
+  Serial.print(" Preset  = ");
   Serial.print(targetTemp);
-  Serial.print(" Default = ");
+  Serial.print(" def = ");
   Serial.println(TARGETAUTO);
   
-  Serial.print("On Cycle (mins) = ");
+  Serial.print("\nOn (mins) = ");
   int a=ONCYCLEIMINS;
   Serial.println(a);
-  Serial.print("Off cycle (mins) = ");
+  Serial.print("Off (mins) = ");
   a=OFFCYCLEMINS;
   Serial.println(a);
   
-  Serial.print("On Cycles = ");
+  Serial.print("On  = ");
   Serial.println(coolCount);
-  Serial.print("Off Cycles = ");
+  Serial.print("Off  = ");
   Serial.println(warmCount);
-  
-  float saving=(float)coolCount/(float)(warmCount+coolCount);
+
+  float ontime=(float)coolCount*(float)ONCYCLEIMINS;
+  float offtime=(float)(warmCount+coolCount)*(float)OFFCYCLEMINS;
+  float saving=ontime/(ontime+offtime);
   saving=saving*100;
 
-  Serial.print("onPercentage = ");
+  Serial.print("\nON/TOTAL = ");
   Serial.print(saving,2);
   Serial.println("%");
 
-  Serial.print("Voltage Measurement ");
+  Serial.print("\nVoltage Measurement ");
   Serial.println(linevolts);
   
 
-  Serial.print("Undervolts");
+  Serial.print(" Undervolts");
   if (undervoltagecut)
   {
     Serial.println(" Y");
@@ -535,12 +590,12 @@ void report()
     Serial.println(" N");
   }
   
-  Serial.print("Low V cut ");
+  Serial.print(" Low V cut ");
   Serial.print(underVoltageLevel);
-  Serial.print(" Default = ");
+  Serial.print(" def = ");
   Serial.println(LOWVOLTAGETHRESHOLD);
 
-  Serial.print("Overvolts");
+  Serial.print(" Overvolts");
   if (overvoltagecut)
   {
     Serial.println(" Y");
@@ -548,15 +603,17 @@ void report()
   {
     Serial.println(" N");
   }  
-  Serial.print("High V cut ");
+  Serial.print(" High V cut ");
   Serial.print(overVoltageLevel);
-  Serial.print(" Default = ");
+  Serial.print(" def = ");
   Serial.println(HIGHVOLTAGETHRESHOLD);
   
-  Serial.print("Always On Voltage ");
+  Serial.print(" Solar Dump V ");
   Serial.print(alwaysOnLevel);
-  Serial.print(" Default = ");
+  Serial.print(" def = ");
   Serial.println(ALLWAYSONVOLTAGE);
+  Serial.println("\n\nEEPROM");
+  reportEPROMVals();
   
 }
 
@@ -571,7 +628,7 @@ void report()
 void printHelp()
 {
    Serial.println("");
-   Serial.println("COOLER HELP say ");
+   Serial.println("Commands");
    Serial.println("break | b");
    Serial.println("cool | c");
    Serial.println("warm | w");
@@ -579,11 +636,10 @@ void printHelp()
    Serial.println("verbose | v");
    Serial.println("auto | a");
    Serial.println("cycle | cy");
-   Serial.println("target | ta");
-   Serial.println("default | d --- returns to factory setting");
-   //Serial.println("undervoltage");
-   //Serial.println("setundervoltage");
-   //Serial.println("wakeup");
+   Serial.println("target | ta -- hit target go to auto cool");
+   Serial.println("targetmaintain | tm -- hit and maintain target");
+   Serial.println("set | s -- set parameters use ? for list");
+   Serial.println("default | d --- factory reset");
    Serial.println("Help | ?");
 }
 
@@ -610,8 +666,12 @@ const char *cyclemodeToken = "cycle";
 const char *cyclemodeToken2 = "cy";
 const char *targetautoToken = "target";
 const char *targetautoToken2 = "ta";
+const char *targetmaintainToken = "targetmaintain";
+const char *targetmaintainToken2 = "tm";
 const char *returndefaultToken = "default";
 const char *returndefaultToken2 = "d";
+const char *setToken = "set";
+const char *setToken2 = "s";
 
 
 /****************************************************
@@ -627,44 +687,33 @@ bool DoCommand(char * commandLine) {
    if ((strcmp(ptrToCommandName, helpCommandToken) == 0) | strcmp(ptrToCommandName, helpCommandToken2)==0)  { 
      printHelp();
      commandExecuted=true;
-     Serial.print("\nReady > ");
    }
    
    if ((strcmp(ptrToCommandName, reportCommandToken) == 0) | strcmp(ptrToCommandName, reportCommandToken2)==0)  { 
      report();
      commandExecuted=true;
-     Serial.print("\nReady > ");
    }
 
    
   if ((strcmp(ptrToCommandName, breakCommandToken) == 0) | strcmp(ptrToCommandName, breakCommandToken2)==0)  { 
      keepWait=false; //break out of the wait loop
      commandExecuted=true;
-     Serial.print("\nReady > ");
    }
 
   if ((strcmp(ptrToCommandName, coolCommandToken) == 0) | strcmp(ptrToCommandName, coolCommandToken2)==0)  { 
-     Serial.print("\nReady > ");
-     Serial.println("Starting 1 hour COOL cycle - break command to end early");
      modeSelect=4;
      changeMode=true;
      commandExecuted=true;
    }
 
    if ((strcmp(ptrToCommandName, warmCommandToken) == 0) | strcmp(ptrToCommandName, warmCommandToken2)==0)  { 
-     Serial.println("Starting 1 hour WARM cycle - break command to end early");
-     Serial.print("\nReady > ");
      modeSelect=5;
      changeMode=true;
      commandExecuted=true;
    }
 
     if ((strcmp(ptrToCommandName, toggleVerbageToken) == 0) | strcmp(ptrToCommandName, toggleVerbageToken2)==0)  { 
-     Serial.println("Toggle Verbose Mode");
      verbage=!verbage;
-     Serial.print("Verbose mode = ");
-     Serial.println(verbage);
-     Serial.print("\nReady > ");
      commandExecuted=true;
    }
 
@@ -672,46 +721,99 @@ bool DoCommand(char * commandLine) {
   if ((strcmp(ptrToCommandName, returndefaultToken) == 0) | strcmp(ptrToCommandName, returndefaultToken2)==0)  { 
      Serial.println("Returning to factory settings");
      returnToDefault();
-     Serial.print("\nReady > ");
      commandExecuted=true;
    }
 
 if ((strcmp(ptrToCommandName, cyclemodeToken) == 0) | strcmp(ptrToCommandName, cyclemodeToken2)==0)  { 
-     Serial.println("Cycle Mode");
-     Serial.print("Cycle mins = ");
+
      Serial.println(ONCYCLEIMINS);;
-     Serial.print("\nReady > ");
      modeSelect=3;
      changeMode=true;
      commandExecuted=true;
    }
 
 if ((strcmp(ptrToCommandName, automodeToken) == 0) | strcmp(ptrToCommandName, automodeToken2)==0)  { 
-     Serial.println("Automode");
-     Serial.print("\nReady > ");
      modeSelect=1;
      changeMode=true;
      commandExecuted=true;
    }
 
    if ((strcmp(ptrToCommandName, targetautoToken) == 0) | strcmp(ptrToCommandName, targetautoToken2)==0)  { 
-     Serial.print("Target Auto - Target ");
-     Serial.println(TARGETAUTO);
-     Serial.print("\nReady > ");
      modeSelect=2;
      changeMode=true;
      commandExecuted=true;
    }
+
+  if ((strcmp(ptrToCommandName, targetmaintainToken) == 0) | strcmp(ptrToCommandName, targetmaintainToken2)==0)  { 
+     modeSelect=6;
+     changeMode=true;
+     commandExecuted=true;
+   }
+     
+
+  if ((strcmp(ptrToCommandName, setToken) == 0) | strcmp(ptrToCommandName, setToken2)==0)  { 
+     
+     char *ele=readWord();
+     int value = readNumber();
+     if (strcmp(ele,"?")==0)
+     {
+      Serial.println("lowvolt highvolt onvolt target lowcut");
+     }
+     if ( ( value<0) || (value >1024) || (isnan(value) ) )
+     {
+      Serial.println("Error");
+     }
+     else
+     {
+         if (strcmp(ele,"lowvolt")==0 )
+         {
+           updateLowVoltageThreshold(value);
+         }
+         else 
+         {
+           if (strcmp(ele,"highvolt") ==0)
+           {
+             updateHighVoltageThreshold(value);
+           }
+           else
+             {
+             if (strcmp(ele,"onvolt") ==0 )
+             {
+                updateAlwaysOnLevel(value);
+             }
+             else {
+               if (strcmp(ele,"target") ==0)
+               {
+                  updateTargetAutoTemp(value);
+               }
+               else {
+                 if (strcmp(ele,"lowcut") ==0 )
+                 {
+                    if (value=0)
+                    {
+                      updateLowVoltageFlag(false);
+                    }
+                    else
+                    {
+                      updateLowVoltageFlag(true);
+                    }
+                 }
+               }
+             }
+           }
+         }
+     }
+     commandExecuted=true;
+  }
+
    
    if (!commandExecuted)
    {
-      Serial.println("Not Recognised");
-      Serial.println("");
+      Serial.println("Error");
+      Serial.println("\n");
       printHelp();
-      Serial.print("\nReady > ");
    }
 
- 
 }
 
 
@@ -751,6 +853,14 @@ int readEPROM(int addr)
   return OP;
 }
 
+void readEPROMandprint(int Addr)
+{
+  Serial.print(" Location ");
+  Serial.print(Addr);
+  Serial.print(" = ");
+  Serial.println(readEPROM(Addr));
+}
+
 
 void readDefaults()
 {
@@ -784,13 +894,14 @@ void readEPROMVals()
 
 void reportEPROMVals()
 {
-     readEPROM(UNDERVOLTAGEFLAG_LOCATION);
-     readEPROM(OVERVOLTAGEFLAG_LOCATION);
-     readEPROM(MODE_LOCATION);
-     readEPROM(UNDERVOLTAGELEVEL_LOCATION);
-     readEPROM(OVERVOLTAGELEVEL_LOCATION);
-     readEPROM(TARGETAUTO_LOCATION);
-     readEPROM(ALWAYSONVOLTAGE_LOCATION); 
+     readEPROMandprint(UNDERVOLTAGEFLAG_LOCATION);
+     readEPROMandprint(OVERVOLTAGEFLAG_LOCATION);
+     readEPROMandprint(MODE_LOCATION);
+     readEPROMandprint(UNDERVOLTAGELEVEL_LOCATION);
+     readEPROMandprint(OVERVOLTAGELEVEL_LOCATION);
+     readEPROMandprint(TARGETAUTO_LOCATION);
+     readEPROMandprint(ALWAYSONVOLTAGE_LOCATION); 
+     Serial.println("\n\n");
 }
 
 
