@@ -490,7 +490,7 @@ void report()
   float saving=(float)coolCount/(float)(warmCount+coolCount);
   saving=saving*100;
 
-  Serial.print("DutyCycle = ");
+  Serial.print("onPercentage = ");
   Serial.print(saving,2);
   Serial.println("%");
 
