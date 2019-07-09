@@ -161,6 +161,8 @@ void selectmode(int modenumber)
             break;
     case 4: longCool();
             break;
+    case 5: longWarm();
+            break;
     default:
           modeSelect=1;
           Serial.println("mode select error");
@@ -213,6 +215,10 @@ void longCool(void)
        switchtoCool(60);
 }
 
+void longWarm(void)
+{
+      switchtoWarm(60);
+}
 
 void automode(void)
 {
