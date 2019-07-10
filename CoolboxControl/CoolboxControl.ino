@@ -242,7 +242,11 @@ void targetMaintain()
 
     startWarmCycleTemp=GlobalTemp;
     
+<<<<<<< HEAD
     while ( ( (GlobalTemp<=targetTemp+0.5) || (linevolts< alwaysOnLevel) ) && (changeMode==false) )
+=======
+    while ( (GlobalTemp<=targetTemp+0.5) && (changeMode==false) )
+>>>>>>> 9765532947cedf27e16d39f3504b682857bf1f71
     {
           switchtoWarm(OFFCYCLEMINS);
           GlobalTemp=dht.readTemperature();
