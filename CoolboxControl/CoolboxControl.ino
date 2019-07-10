@@ -25,7 +25,7 @@
 #define LOWVOLTAGETHRESHOLD 640
 #define HIGHVOLTAGETHRESHOLD 680
 #define ALLWAYSONVOLTAGE 663
-#define TARGETAUTO 15
+#define TARGETAUTO 120
 
 
 /* 
@@ -61,10 +61,9 @@ int linevolts=0;
 int underVoltageLevel=1023;
 int overVoltageLevel=0;
 int alwaysOnLevel=1023;
-int targetTemp=0;
 
-
-float GlobalTemp;
+float targetTemp=12.0;
+float GlobalTemp=100;
 float initialTemp=0;
 float lastTemp=0;
 float startWarmCycleTemp=0;
@@ -243,7 +242,7 @@ void targetMaintain()
 
     startWarmCycleTemp=GlobalTemp;
     
-    while ( (GlobalTemp<=startWarmCycleTemp+0.5) && (changeMode==false) )
+    while ( (GlobalTemp<=targetTemp+0.5) && (changeMode==false) )
     {
           switchtoWarm(OFFCYCLEMINS);
           GlobalTemp=dht.readTemperature();
@@ -552,9 +551,9 @@ void report()
   
 
   Serial.print(" Preset  = ");
-  Serial.print(targetTemp);
+  Serial.print(targetTemp,1);
   Serial.print(" def = ");
-  Serial.println(TARGETAUTO);
+  Serial.println((float)TARGETAUTO/10);
   
   Serial.print("\nOn (mins) = ");
   int a=ONCYCLEIMINS;
@@ -888,7 +887,7 @@ void readEPROMVals()
       modeSelect=readEPROM(MODE_LOCATION);
       underVoltageLevel=readEPROM(UNDERVOLTAGELEVEL_LOCATION);
       overVoltageLevel=readEPROM(OVERVOLTAGELEVEL_LOCATION);
-      targetTemp=readEPROM(TARGETAUTO_LOCATION);
+      targetTemp=(float)readEPROM(TARGETAUTO_LOCATION)/10;
       alwaysOnLevel=readEPROM(ALWAYSONVOLTAGE_LOCATION); 
 }
 
@@ -960,6 +959,6 @@ void updateHighVoltageFlag(bool onoff)
 void updateTargetAutoTemp(int Temp)
 {
         writeEPROM(TARGETAUTO_LOCATION,Temp);
-        targetTemp=Temp;
+        targetTemp=(float)Temp/10;
 }
 
