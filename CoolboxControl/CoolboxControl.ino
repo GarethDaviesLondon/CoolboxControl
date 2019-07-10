@@ -401,6 +401,32 @@ void waitMins(int mins)
      } //if keepWait
    }//for
 }
+
+
+/*waitQminsVoltageHalt is required as otherwise it can call the calling function and crash! */
+
+void waitQminsVoltageHalt(int mins)
+{
+  if (getCommandLineFromSerialPort(CommandLine) )
+          {
+            DoCommand(CommandLine);
+  }
+  keepWait=true;
+    for (int lp=0;lp<mins;lp++)
+    {
+        if ( keepWait && !changeMode ) {
+        for (int innerlp=0;innerlp<150;innerlp++)
+        {
+          delay(100);
+          if(!keepWait || changeMode ) {break;}
+          if (getCommandLineFromSerialPort(CommandLine) )
+          {
+            DoCommand(CommandLine);
+          }
+        }//for
+     } //if keepWait
+   }//for
+}
  
 
 
@@ -465,21 +491,17 @@ void overVoltage(void)
 
 #ifndef NOSAFETY
   String holder=Mode;
-  while (highLineVoltage () ==true)
+  if (lowLineVoltage())
   {
-    delay (1000); //wait for the voltage to come back
-    //check one more time for transients
-    if (highLineVoltage()==true)
-    {
+    delay (1000);
+    //check one more time to ignore transients
+  }
+  while (highLineVoltage ())
+  {
       Mode="V++ cut-out";
       digitalWrite(RELAYCONTROL,OFFVALUE);
       Serial.println("++V Cut");
-      waitMins(1);
-    }
-    else
-    {
-      Serial.println("++V Transient");
-    }
+      waitQminsVoltageHalt(1);
   }
 #endif
   Mode=holder;
@@ -490,21 +512,17 @@ void underVoltage(void)
 
 #ifndef NOSAFETY
   String holder = Mode;
-  while (lowLineVoltage () == true)
+  if (lowLineVoltage())
   {
-    delay (10000); //wait for the voltage to come back
-    //check one more time for transients
-    if (lowLineVoltage()==true)
-    {
+    delay (10000);
+    //check one more time to ignore transients
+  }
+  while (lowLineVoltage ())
+  {
       Mode="Under Voltage";
       digitalWrite(RELAYCONTROL,OFFVALUE);
       Serial.println("--V");
-      waitMins(1);
-    }
-    else
-    {
-      Serial.println("--V Transient");
-    }
+      waitQminsVoltageHalt(1);
   }
   Mode=holder;
 #endif
